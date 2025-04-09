@@ -11,10 +11,13 @@ import {
 } from "@/components/ui/dialog"
 import { ChatbotUIContext } from "@/context/context"
 import { deleteChat } from "@/db/chats"
+import { getMessagesByChatId } from "@/db/messages"
+import { supabase } from "@/lib/supabase/browser-client"
 import useHotkey from "@/lib/hooks/use-hotkey"
 import { Tables } from "@/supabase/types"
 import { IconTrash } from "@tabler/icons-react"
 import { FC, useContext, useRef, useState } from "react"
+import { toast } from "sonner"
 
 interface DeleteChatProps {
   chat: Tables<"chats">
@@ -29,15 +32,48 @@ export const DeleteChat: FC<DeleteChatProps> = ({ chat }) => {
   const buttonRef = useRef<HTMLButtonElement>(null)
 
   const [showChatDialog, setShowChatDialog] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const handleDeleteChat = async () => {
-    await deleteChat(chat.id)
+    try {
+      setIsDeleting(true)
 
-    setChats(prevState => prevState.filter(c => c.id !== chat.id))
+      // 1. Get all messages for this chat
+      const messages = await getMessagesByChatId(chat.id)
 
-    setShowChatDialog(false)
+      // 2. Find all image paths that need to be deleted
+      const allImagePaths: string[] = []
+      messages.forEach(message => {
+        if (message.image_paths && message.image_paths.length > 0) {
+          allImagePaths.push(...message.image_paths)
+        }
+      })
 
-    handleNewChat()
+      // 3. Delete images from storage bucket if there are any
+      if (allImagePaths.length > 0) {
+        const { error } = await supabase.storage
+          .from("message_images")
+          .remove(allImagePaths)
+
+        if (error) {
+          console.error("Error deleting message images:", error)
+          // Continue with chat deletion even if image deletion fails
+        }
+      }
+
+      // 4. Delete the chat (will cascade to messages and chat_files)
+      await deleteChat(chat.id)
+
+      // 5. Update UI
+      setChats(prevState => prevState.filter(c => c.id !== chat.id))
+      setShowChatDialog(false)
+      handleNewChat()
+    } catch (error) {
+      console.error("Error deleting chat:", error)
+      toast.error("Failed to delete chat. Please try again.")
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -62,7 +98,11 @@ export const DeleteChat: FC<DeleteChatProps> = ({ chat }) => {
         </DialogHeader>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setShowChatDialog(false)}>
+          <Button
+            variant="ghost"
+            onClick={() => setShowChatDialog(false)}
+            disabled={isDeleting}
+          >
             Cancel
           </Button>
 
@@ -70,8 +110,9 @@ export const DeleteChat: FC<DeleteChatProps> = ({ chat }) => {
             ref={buttonRef}
             variant="destructive"
             onClick={handleDeleteChat}
+            disabled={isDeleting}
           >
-            Delete
+            {isDeleting ? "Deleting..." : "Delete"}
           </Button>
         </DialogFooter>
       </DialogContent>

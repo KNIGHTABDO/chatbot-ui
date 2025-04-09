@@ -50,19 +50,45 @@ export const ModelSelect: FC<ModelSelectProps> = ({
     setIsOpen(false)
   }
 
-  const allModels = [
-    ...models.map(model => ({
-      modelId: model.model_id as LLMID,
-      modelName: model.name,
-      provider: "custom" as ModelProvider,
-      hostedId: model.id,
-      platformLink: "",
-      imageInput: false
-    })),
-    ...availableHostedModels,
-    ...availableLocalModels,
-    ...availableOpenRouterModels
-  ]
+  // Filter models to only include OpenRouter models with "free" in their name, plus google/gemini-2.0-flash-exp:free
+  const filteredOpenRouterModels = availableOpenRouterModels.filter(model =>
+    model.modelId.toLowerCase().includes("free")
+  )
+
+  // Add the default Google model if it's not already included
+  const defaultModel = {
+    modelId: "google/gemini-2.0-flash-exp:free" as LLMID,
+    modelName: "Google Gemini 2.0 Flash (Free)",
+    provider: "openrouter" as ModelProvider,
+    hostedId: "google/gemini-2.0-flash-exp:free",
+    platformLink: "https://openrouter.ai",
+    imageInput: false,
+    maxContext: 4096
+  }
+
+  // Add the Google image-capable model
+  const googleImageModel = {
+    modelId: "gemini-2.5-pro-exp-03-25" as LLMID,
+    modelName: "Gemini 2.5 Pro (Image Support)",
+    provider: "google" as ModelProvider,
+    hostedId: "gemini-2.5-pro-exp-03-25",
+    platformLink: "https://ai.google.dev/",
+    imageInput: true,
+    maxContext: 32768
+  }
+
+  // Check if the default model exists in the filtered list
+  const defaultModelExists = filteredOpenRouterModels.some(
+    model => model.modelId === defaultModel.modelId
+  )
+
+  // If not, add it
+  if (!defaultModelExists) {
+    filteredOpenRouterModels.push(defaultModel)
+  }
+
+  // Combine OpenRouter models with the Google image model
+  const allModels = [...filteredOpenRouterModels, googleImageModel]
 
   const groupedModels = allModels.reduce<Record<string, LLM[]>>(
     (groups, model) => {
@@ -76,9 +102,22 @@ export const ModelSelect: FC<ModelSelectProps> = ({
     {}
   )
 
-  const selectedModel = allModels.find(
-    model => model.modelId === selectedModelId
-  )
+  // If the selected model is not in our filtered list, default to the Google model
+  const selectedModel =
+    allModels.find(model => model.modelId === selectedModelId) ||
+    (allModels.length > 0
+      ? allModels.find(
+          model =>
+            model.modelId === ("google/gemini-2.0-flash-exp:free" as LLMID)
+        ) || allModels[0]
+      : null)
+
+  // If selected model doesn't match selectedModelId, update it
+  useEffect(() => {
+    if (selectedModel && selectedModel.modelId !== selectedModelId) {
+      onSelectModel(selectedModel.modelId)
+    }
+  }, [selectedModelId, selectedModel, onSelectModel])
 
   if (!profile) return null
 
@@ -132,16 +171,6 @@ export const ModelSelect: FC<ModelSelectProps> = ({
         style={{ width: triggerRef.current?.offsetWidth }}
         align="start"
       >
-        <Tabs value={tab} onValueChange={(value: any) => setTab(value)}>
-          {availableLocalModels.length > 0 && (
-            <TabsList defaultValue="hosted" className="grid grid-cols-2">
-              <TabsTrigger value="hosted">Hosted</TabsTrigger>
-
-              <TabsTrigger value="local">Local</TabsTrigger>
-            </TabsList>
-          )}
-        </Tabs>
-
         <Input
           ref={inputRef}
           className="w-full"
@@ -152,29 +181,22 @@ export const ModelSelect: FC<ModelSelectProps> = ({
 
         <div className="max-h-[300px] overflow-auto">
           {Object.entries(groupedModels).map(([provider, models]) => {
-            const filteredModels = models
-              .filter(model => {
-                if (tab === "hosted") return model.provider !== "ollama"
-                if (tab === "local") return model.provider === "ollama"
-                if (tab === "openrouter") return model.provider === "openrouter"
-              })
+            const searchFilteredModels = models
               .filter(model =>
                 model.modelName.toLowerCase().includes(search.toLowerCase())
               )
-              .sort((a, b) => a.provider.localeCompare(b.provider))
+              .sort((a, b) => a.modelName.localeCompare(b.modelName))
 
-            if (filteredModels.length === 0) return null
+            if (searchFilteredModels.length === 0) return null
 
             return (
               <div key={provider}>
                 <div className="mb-1 ml-2 text-xs font-bold tracking-wide opacity-50">
-                  {provider === "openai" && profile.use_azure_openai
-                    ? "AZURE OPENAI"
-                    : provider.toLocaleUpperCase()}
+                  {provider.toLocaleUpperCase()}
                 </div>
 
                 <div className="mb-4">
-                  {filteredModels.map(model => {
+                  {searchFilteredModels.map(model => {
                     return (
                       <div
                         key={model.modelId}

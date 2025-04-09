@@ -221,6 +221,8 @@ const AdvancedContent: FC<AdvancedContentProps> = ({
         )}
       </div>
 
+      {/* Remove Embeddings Provider Selection */}
+      {/*
       <div className="mt-5">
         <Label>Embeddings Provider</Label>
 
@@ -248,6 +250,7 @@ const AdvancedContent: FC<AdvancedContentProps> = ({
           </SelectContent>
         </Select>
       </div>
+      */}
     </div>
   )
 }

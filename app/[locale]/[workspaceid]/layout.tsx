@@ -168,8 +168,7 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
       includeProfileContext: workspace?.include_profile_context || true,
       includeWorkspaceInstructions:
         workspace?.include_workspace_instructions || true,
-      embeddingsProvider:
-        (workspace?.embeddings_provider as "openai" | "local") || "openai"
+      embeddingsProvider: "local" // Always default to local
     })
 
     setLoading(false)

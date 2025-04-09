@@ -5,7 +5,7 @@ interface CHATAISVGProps {
   scale?: number
 }
 
-export const ChatbotUISVG: FC<CHATAISVGProps> = ({ theme, scale = 1 }) => {
+export const CHATAISVG: FC<CHATAISVGProps> = ({ theme, scale = 1 }) => {
   return (
     <svg
       width={189 * scale}
