@@ -24,6 +24,26 @@ const GEMINI_1_5_PRO: LLM = {
   imageInput: true
 }
 
+// Gemini 2.0 Flash (UPDATED 04/09/25)
+const GEMINI_2_0_FLASH: LLM = {
+  modelId: "gemini-2.0-flash",
+  modelName: "Gemini 2.0 Flash",
+  provider: "google",
+  hostedId: "gemini-2.0-flash",
+  platformLink: GOOGLE_PLATORM_LINK,
+  imageInput: true
+}
+
+// Gemini 2.5 Pro Experimental (UPDATED 10/09/24)
+const GEMINI_2_5_PRO_EXP: LLM = {
+  modelId: "gemini-2.5-pro-exp-03-25",
+  modelName: "Gemini 2.5 Pro Experimental",
+  provider: "google",
+  hostedId: "gemini-2.5-pro-exp-03-25",
+  platformLink: GOOGLE_PLATORM_LINK,
+  imageInput: true
+}
+
 // Gemini Pro (UPDATED 12/22/23)
 const GEMINI_PRO: LLM = {
   modelId: "gemini-pro",
@@ -44,4 +64,11 @@ const GEMINI_PRO_VISION: LLM = {
   imageInput: true
 }
 
-export const GOOGLE_LLM_LIST: LLM[] = [GEMINI_PRO, GEMINI_PRO_VISION, GEMINI_1_5_PRO, GEMINI_1_5_FLASH]
+export const GOOGLE_LLM_LIST: LLM[] = [
+  GEMINI_PRO,
+  GEMINI_PRO_VISION,
+  GEMINI_1_5_PRO,
+  GEMINI_1_5_FLASH,
+  GEMINI_2_0_FLASH,
+  GEMINI_2_5_PRO_EXP
+]

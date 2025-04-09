@@ -733,9 +733,7 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
 
             <WithTooltip
               display={
-                <div>
-                  Download Chatbot UI 1.0 data as JSON. Import coming soon!
-                </div>
+                <div>Download CHATAI data as JSON. Import coming soon!</div>
               }
               trigger={
                 <IconFileDownload
