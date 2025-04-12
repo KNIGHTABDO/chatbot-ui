@@ -85,6 +85,14 @@ export const CHAT_SETTING_LIMITS: Record<LLMID, ChatSettingLimits> = {
     MAX_CONTEXT_LENGTH: 1000000
   },
 
+  // OPENROUTER MODELS
+  "google/gemini-2.0-flash-exp:free": {
+    MIN_TEMPERATURE: 0.0,
+    MAX_TEMPERATURE: 1.0,
+    MAX_TOKEN_OUTPUT_LENGTH: 8192,
+    MAX_CONTEXT_LENGTH: 32768
+  },
+
   // MISTRAL MODELS
   "mistral-tiny": {
     MIN_TEMPERATURE: 0.0,

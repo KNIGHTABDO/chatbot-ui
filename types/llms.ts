@@ -7,6 +7,7 @@ export type LLMID =
   | MistralLLMID
   | GroqLLMID
   | PerplexityLLMID
+  | OpenRouterLLMID
 
 // OpenAI Models (UPDATED 5/13/24)
 export type OpenAILLMID =
@@ -24,6 +25,9 @@ export type GoogleLLMID =
   | "gemini-1.5-flash" // Gemini 1.5 Flash
   | "gemini-2.0-flash" // Gemini 2.0 Flash
   | "gemini-2.5-pro-exp-03-25" // Gemini 2.5 Pro Experimental
+
+// OpenRouter Models
+export type OpenRouterLLMID = "google/gemini-2.0-flash-exp:free" // Gemini 2.0 Flash Experimental (free tier)
 
 // Anthropic Models
 export type AnthropicLLMID =
