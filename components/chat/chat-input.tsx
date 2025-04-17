@@ -8,10 +8,12 @@ import {
   IconPlayerStopFilled,
   IconSend
 } from "@tabler/icons-react"
+import { Globe } from "lucide-react"
 import Image from "next/image"
 import { FC, useContext, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
+import { Button } from "../ui/button"
 import { Input } from "../ui/input"
 import { TextareaAutosize } from "../ui/textarea-autosize"
 import { ChatCommandInput } from "./chat-command-input"
@@ -31,6 +33,7 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
   })
 
   const [isTyping, setIsTyping] = useState<boolean>(false)
+  const [isWebSearchEnabled, setIsWebSearchEnabled] = useState<boolean>(false)
 
   const {
     isAssistantPickerOpen,
@@ -85,7 +88,7 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
     if (!isTyping && event.key === "Enter" && !event.shiftKey) {
       event.preventDefault()
       setIsPromptPickerOpen(false)
-      handleSendMessage(userInput, chatMessages, false)
+      handleSendMessage(userInput, chatMessages, false, isWebSearchEnabled)
     }
 
     // Consolidate conditions to avoid TypeScript error
@@ -253,26 +256,48 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
           onCompositionEnd={() => setIsTyping(false)}
         />
 
-        <div className="absolute bottom-[14px] right-3 cursor-pointer hover:opacity-50">
+        <div className="absolute bottom-[12px] right-3 flex items-center">
           {isGenerating ? (
-            <IconPlayerStopFilled
-              className="hover:bg-background animate-pulse rounded bg-transparent p-1"
-              onClick={handleStopMessage}
-              size={30}
-            />
+            <Button variant="ghost" size="icon" onClick={handleStopMessage}>
+              <IconPlayerStopFilled />
+            </Button>
           ) : (
-            <IconSend
-              className={cn(
-                "bg-primary text-secondary rounded p-1",
-                !userInput && "cursor-not-allowed opacity-50"
-              )}
-              onClick={() => {
-                if (!userInput) return
+            <>
+              {/* Web Search Toggle Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsWebSearchEnabled(!isWebSearchEnabled)}
+                className={cn(
+                  "mr-1",
+                  isWebSearchEnabled && "text-blue-500 hover:text-blue-600"
+                )}
+                title={
+                  isWebSearchEnabled
+                    ? "Disable Web Search"
+                    : "Enable Web Search"
+                }
+              >
+                <Globe size={20} />
+              </Button>
 
-                handleSendMessage(userInput, chatMessages, false)
-              }}
-              size={30}
-            />
+              {/* Send Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={!userInput}
+                onClick={() =>
+                  handleSendMessage(
+                    userInput,
+                    chatMessages,
+                    false,
+                    isWebSearchEnabled
+                  )
+                }
+              >
+                <IconSend />
+              </Button>
+            </>
           )}
         </div>
       </div>

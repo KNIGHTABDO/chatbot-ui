@@ -21,6 +21,7 @@ import {
   LLM,
   MessageImage,
   OpenRouterLLM,
+  WebSearchResult,
   WorkspaceImage
 } from "@/types"
 import { AssistantImage } from "@/types/images/assistant-image"
@@ -114,6 +115,11 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
   const [newMessageFiles, setNewMessageFiles] = useState<ChatFile[]>([])
   const [newMessageImages, setNewMessageImages] = useState<MessageImage[]>([])
   const [showFilesDisplay, setShowFilesDisplay] = useState<boolean>(false)
+
+  // WEB SEARCH SOURCES STORE
+  const [webSearchSources, setWebSearchSources] = useState<
+    Record<string, WebSearchResult>
+  >({})
 
   // RETIEVAL STORE
   const [useRetrieval, setUseRetrieval] = useState<boolean>(true)
@@ -311,6 +317,10 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
         setNewMessageImages,
         showFilesDisplay,
         setShowFilesDisplay,
+
+        // WEB SEARCH SOURCES STORE
+        webSearchSources,
+        setWebSearchSources,
 
         // RETRIEVAL STORE
         useRetrieval,

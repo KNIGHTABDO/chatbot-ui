@@ -17,7 +17,8 @@ import {
   ChatPayload,
   ChatSettings,
   LLM,
-  MessageImage
+  MessageImage,
+  WebSearchResult
 } from "@/types"
 import React from "react"
 import { toast } from "sonner"
@@ -69,7 +70,30 @@ export const handleRetrieval = async (
   })
 
   if (!response.ok) {
-    console.error("Error retrieving:", response)
+    // Handle retrieval API errors
+    let errorMessage = `Retrieval failed with status: ${response.status}`
+    try {
+      const errorData = await response.json()
+      if (
+        errorData &&
+        typeof errorData === "object" &&
+        "message" in errorData &&
+        typeof errorData.message === "string"
+      ) {
+        errorMessage = `Retrieval failed: ${errorData.message}`
+      } else {
+        errorMessage = `Retrieval failed: ${JSON.stringify(errorData)}`
+      }
+    } catch (jsonError) {
+      try {
+        const errorText = await response.text()
+        errorMessage = `Retrieval failed: ${errorText.substring(0, 100)}...`
+      } catch (textError) {
+        // Use the status code message
+      }
+    }
+    console.error("Error during handleRetrieval:", errorMessage)
+    throw new Error(errorMessage) // Throw standard error
   }
 
   const { results } = (await response.json()) as {
@@ -199,7 +223,10 @@ export const handleHostedChat = async (
   setIsGenerating: React.Dispatch<React.SetStateAction<boolean>>,
   setFirstTokenReceived: React.Dispatch<React.SetStateAction<boolean>>,
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
-  setToolInUse: React.Dispatch<React.SetStateAction<string>>
+  setToolInUse: React.Dispatch<React.SetStateAction<string>>,
+  setWebSearchSources: React.Dispatch<
+    React.SetStateAction<Record<string, WebSearchResult>>
+  >
 ) => {
   const provider =
     modelData.provider === "openai" && profile.use_azure_openai
@@ -224,7 +251,8 @@ export const handleHostedChat = async (
   const requestBody = {
     chatSettings: payload.chatSettings,
     messages: formattedMessages,
-    customModelId: provider === "custom" ? modelData.hostedId : ""
+    customModelId: provider === "custom" ? modelData.hostedId : "",
+    isWebSearchEnabled: payload.isWebSearchEnabled
   }
 
   const response = await fetchChatResponse(
@@ -245,7 +273,8 @@ export const handleHostedChat = async (
     newAbortController,
     setFirstTokenReceived,
     setChatMessages,
-    setToolInUse
+    setToolInUse,
+    setWebSearchSources
   )
 }
 
@@ -270,9 +299,34 @@ export const fetchChatResponse = async (
       )
     }
 
-    const errorData = await response.json()
+    // Try to parse error response
+    let errorMessage = `An error occurred (Status: ${response.status})`
+    try {
+      const errorData = await response.json()
+      // Check if errorData is an object and has a message property
+      if (
+        errorData &&
+        typeof errorData === "object" &&
+        "message" in errorData &&
+        typeof errorData.message === "string"
+      ) {
+        errorMessage = errorData.message
+      } else {
+        // Fallback if parsing works but no message property
+        errorMessage = `An error occurred: ${JSON.stringify(errorData)}`
+      }
+    } catch (jsonError) {
+      // Fallback if response is not JSON
+      try {
+        const errorText = await response.text()
+        errorMessage = `An error occurred: ${errorText.substring(0, 100)}...` // Show first 100 chars
+      } catch (textError) {
+        // Final fallback if text cannot be read
+        errorMessage = `An error occurred (Status: ${response.status}) and the error details could not be read.`
+      }
+    }
 
-    toast.error(errorData.message)
+    toast.error(errorMessage)
 
     setIsGenerating(false)
     setChatMessages(prevMessages => prevMessages.slice(0, -2))
@@ -288,10 +342,14 @@ export const processResponse = async (
   controller: AbortController,
   setFirstTokenReceived: React.Dispatch<React.SetStateAction<boolean>>,
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
-  setToolInUse: React.Dispatch<React.SetStateAction<string>>
+  setToolInUse: React.Dispatch<React.SetStateAction<string>>,
+  setWebSearchSources?: React.Dispatch<
+    React.SetStateAction<Record<string, WebSearchResult>>
+  >
 ) => {
   let fullText = ""
   let contentToAdd = ""
+  let webSearchMetadataProcessed = false
 
   if (response.body) {
     await consumeReadableStream(
@@ -301,22 +359,60 @@ export const processResponse = async (
         setToolInUse("none")
 
         try {
-          contentToAdd = isHosted
-            ? chunk
-            : // Ollama's streaming endpoint returns new-line separated JSON
-              // objects. A chunk may have more than one of these objects, so we
-              // need to split the chunk by new-lines and handle each one
-              // separately.
-              chunk
-                .trimEnd()
-                .split("\n")
-                .reduce(
-                  (acc, line) => acc + JSON.parse(line).message.content,
-                  ""
-                )
+          // Check if this is a metadata chunk from web search
+          if (!webSearchMetadataProcessed && chunk.startsWith('{"metadata":')) {
+            const metadataEndIndex = chunk.indexOf("\n")
+            if (metadataEndIndex !== -1) {
+              const metadataChunk = chunk.substring(0, metadataEndIndex)
+              const restOfChunk = chunk.substring(metadataEndIndex + 1)
+
+              try {
+                const parsedMetadata = JSON.parse(metadataChunk)
+                if (
+                  parsedMetadata.metadata &&
+                  parsedMetadata.metadata.isWebSearch &&
+                  parsedMetadata.metadata.webSearchSources &&
+                  setWebSearchSources
+                ) {
+                  // Store the full webSearchSources object with sources, images and query
+                  setWebSearchSources(prev => ({
+                    ...prev,
+                    [lastChatMessage.message.id]:
+                      parsedMetadata.metadata.webSearchSources
+                  }))
+
+                  // Log to help with debugging
+                  console.log(
+                    "Processed web search metadata:",
+                    parsedMetadata.metadata.webSearchSources
+                  )
+                }
+              } catch (err) {
+                console.error("Error parsing web search metadata:", err)
+              }
+
+              webSearchMetadataProcessed = true
+              contentToAdd = isHosted ? restOfChunk : restOfChunk
+            }
+          } else {
+            contentToAdd = isHosted
+              ? chunk
+              : // Ollama's streaming endpoint returns new-line separated JSON
+                // objects. A chunk may have more than one of these objects, so we
+                // need to split the chunk by new-lines and handle each one
+                // separately.
+                chunk
+                  .trimEnd()
+                  .split("\n")
+                  .reduce(
+                    (acc, line) => acc + JSON.parse(line).message.content,
+                    ""
+                  )
+          }
+
           fullText += contentToAdd
         } catch (error) {
-          console.error("Error parsing JSON:", error)
+          console.error("Error parsing response:", error)
         }
 
         setChatMessages(prev =>
@@ -402,7 +498,11 @@ export const handleCreateMessages = async (
     React.SetStateAction<Tables<"file_items">[]>
   >,
   setChatImages: React.Dispatch<React.SetStateAction<MessageImage[]>>,
-  selectedAssistant: Tables<"assistants"> | null
+  selectedAssistant: Tables<"assistants"> | null,
+  webSearchSources?: Record<string, WebSearchResult>,
+  setWebSearchSources?: React.Dispatch<
+    React.SetStateAction<Record<string, WebSearchResult>>
+  >
 ) => {
   const finalUserMessage: TablesInsert<"messages"> = {
     chat_id: currentChat.id,

@@ -23,6 +23,7 @@ import { TextareaAutosize } from "../ui/textarea-autosize"
 import { WithTooltip } from "../ui/with-tooltip"
 import { MessageActions } from "./message-actions"
 import { MessageMarkdown } from "./message-markdown"
+import { WebSearchSources } from "./web-search-sources"
 
 const ICON_SIZE = 32
 
@@ -59,7 +60,8 @@ export const Message: FC<MessageProps> = ({
     assistantImages,
     toolInUse,
     files,
-    models
+    models,
+    webSearchSources
   } = useContext(ChatbotUIContext)
 
   const { handleSendMessage } = useChatHandler()
@@ -108,7 +110,8 @@ export const Message: FC<MessageProps> = ({
     await handleSendMessage(
       editedMessage || chatMessages[chatMessages.length - 2].message.content,
       chatMessages,
-      true
+      true,
+      false // false for web search when regenerating
     )
   }
 
@@ -285,6 +288,27 @@ export const Message: FC<MessageProps> = ({
                         <div>Searching files...</div>
                       </div>
                     )
+                  case "web-search":
+                    return (
+                      <div className="flex animate-pulse items-center space-x-2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="2" y1="12" x2="22" y2="12" />
+                          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        </svg>
+                        <div>Searching the web...</div>
+                      </div>
+                    )
                   default:
                     return (
                       <div className="flex animate-pulse items-center space-x-2">
@@ -374,6 +398,15 @@ export const Message: FC<MessageProps> = ({
               </>
             )}
           </div>
+        )}
+
+        {/* Web Search Sources Display */}
+        {webSearchSources[message.id] && (
+          <WebSearchSources
+            sources={webSearchSources[message.id].sources || []}
+            images={webSearchSources[message.id].images || []}
+            query={webSearchSources[message.id].query || ""}
+          />
         )}
 
         <div className="mt-3 flex flex-wrap gap-2">

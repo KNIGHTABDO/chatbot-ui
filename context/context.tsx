@@ -6,6 +6,7 @@ import {
   LLM,
   MessageImage,
   OpenRouterLLM,
+  WebSearchResult,
   WorkspaceImage
 } from "@/types"
 import { AssistantImage } from "@/types/images/assistant-image"
@@ -124,6 +125,10 @@ interface ChatbotUIContext {
   setNewMessageImages: Dispatch<SetStateAction<MessageImage[]>>
   showFilesDisplay: boolean
   setShowFilesDisplay: Dispatch<SetStateAction<boolean>>
+
+  // WEB SEARCH SOURCES STORE
+  webSearchSources: Record<string, WebSearchResult>
+  setWebSearchSources: Dispatch<SetStateAction<Record<string, WebSearchResult>>>
 
   // RETRIEVAL STORE
   useRetrieval: boolean
@@ -250,6 +255,10 @@ export const ChatbotUIContext = createContext<ChatbotUIContext>({
   setNewMessageImages: () => {},
   showFilesDisplay: false,
   setShowFilesDisplay: () => {},
+
+  // WEB SEARCH SOURCES STORE
+  webSearchSources: {},
+  setWebSearchSources: () => {},
 
   // RETRIEVAL STORE
   useRetrieval: false,

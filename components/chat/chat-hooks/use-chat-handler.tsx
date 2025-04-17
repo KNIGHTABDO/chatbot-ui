@@ -7,7 +7,15 @@ import { getCollectionFilesByCollectionId } from "@/db/collection-files"
 import { deleteMessagesIncludingAndAfter } from "@/db/messages"
 import { buildFinalMessages } from "@/lib/build-prompt"
 import { Tables } from "@/supabase/types"
-import { ChatMessage, ChatPayload, LLMID, ModelProvider } from "@/types"
+import {
+  ChatMessage,
+  ChatPayload,
+  LLM,
+  LLMID,
+  MessageImage,
+  ModelProvider,
+  WebSearchResult
+} from "@/types"
 import { useRouter } from "next/navigation"
 import { useContext, useEffect, useRef } from "react"
 import { LLM_LIST } from "../../../lib/models/llm/llm-list"
@@ -21,6 +29,7 @@ import {
   processResponse,
   validateChatSettings
 } from "../chat-helpers"
+import { toast } from "sonner"
 
 export const useChatHandler = () => {
   const router = useRouter()
@@ -66,7 +75,9 @@ export const useChatHandler = () => {
     models,
     isPromptPickerOpen,
     isFilePickerOpen,
-    isToolPickerOpen
+    isToolPickerOpen,
+    webSearchSources,
+    setWebSearchSources
   } = useContext(ChatbotUIContext)
 
   const chatInputRef = useRef<HTMLTextAreaElement>(null)
@@ -191,7 +202,8 @@ export const useChatHandler = () => {
   const handleSendMessage = async (
     messageContent: string,
     chatMessages: ChatMessage[],
-    isRegeneration: boolean
+    isRegeneration: boolean,
+    isWebSearchEnabled: boolean
   ) => {
     const startingInput = messageContent
 
@@ -201,6 +213,11 @@ export const useChatHandler = () => {
       setIsPromptPickerOpen(false)
       setIsFilePickerOpen(false)
       setNewMessageImages([])
+
+      // Set web search indicator if web search is enabled
+      if (isWebSearchEnabled) {
+        setToolInUse("web-search")
+      }
 
       const newAbortController = new AbortController()
       setAbortController(newAbortController)
@@ -261,13 +278,17 @@ export const useChatHandler = () => {
 
       let payload: ChatPayload = {
         chatSettings: chatSettings!,
-        workspaceInstructions: selectedWorkspace!.instructions || "",
+        workspaceInstructions:
+          chatSettings!.includeWorkspaceInstructions && selectedWorkspace
+            ? selectedWorkspace.instructions
+            : "",
         chatMessages: isRegeneration
           ? [...chatMessages]
           : [...chatMessages, tempUserChatMessage],
         assistant: selectedChat?.assistant_id ? selectedAssistant : null,
         messageFileItems: retrievedFileItems,
-        chatFileItems: chatFileItems
+        chatFileItems: chatFileItems,
+        isWebSearchEnabled
       }
 
       let generatedText = ""
@@ -333,7 +354,8 @@ export const useChatHandler = () => {
             setIsGenerating,
             setFirstTokenReceived,
             setChatMessages,
-            setToolInUse
+            setToolInUse,
+            setWebSearchSources
           )
         }
       }
@@ -382,10 +404,28 @@ export const useChatHandler = () => {
 
       setIsGenerating(false)
       setFirstTokenReceived(false)
-    } catch (error) {
+    } catch (error: any) {
       setIsGenerating(false)
       setFirstTokenReceived(false)
       setUserInput(startingInput)
+      setNewMessageFiles([])
+      setNewMessageImages([])
+      setShowFilesDisplay(false)
+      setChatMessages(prevMessages => prevMessages.slice(0, -2))
+
+      let errorMessage = "An unexpected error occurred during chat."
+      if (
+        error &&
+        typeof error === "object" &&
+        "message" in error &&
+        typeof error.message === "string"
+      ) {
+        errorMessage = error.message
+      } else if (typeof error === "string") {
+        errorMessage = error
+      }
+      console.error("Error in handleSendMessage:", error)
+      toast.error(errorMessage)
     }
   }
 
@@ -407,12 +447,11 @@ export const useChatHandler = () => {
 
     setChatMessages(filteredMessages)
 
-    handleSendMessage(editedContent, filteredMessages, false)
+    handleSendMessage(editedContent, filteredMessages, false, false)
   }
 
   return {
     chatInputRef,
-    prompt,
     handleNewChat,
     handleSendMessage,
     handleFocusChatInput,
